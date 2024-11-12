@@ -1,2 +1,10 @@
+# .env files
 .env
+.env.local
+
+# python virtual enviroment folder
 venv
+.venv
+
+# vs code folder
+.vscode
