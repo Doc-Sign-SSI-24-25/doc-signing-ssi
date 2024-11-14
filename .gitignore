@@ -8,3 +8,8 @@ venv
 
 # vs code folder
 .vscode
+
+# python cache folder
+__pycache__
+
+pdf-signed.pdf

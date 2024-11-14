@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from motor.motor_asyncio import AsyncIOMotorClient
-from app.config import MONGODB_URI, DATABASE_NAME
+from config import MONGODB_URI, DATABASE_NAME
 
 app = FastAPI()
 

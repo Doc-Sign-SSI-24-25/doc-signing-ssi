@@ -5,3 +5,4 @@ motor                    # Driver assíncrono para MongoDB
 cryptography             # Para geração de chaves e assinatura digital
 jinja2                   # Motor de templates para o front-end
 python-dotenv            # Para lidar com variáveis de ambiente (credenciais)
+endesive                 # Para assinar digitalmente os documentos
