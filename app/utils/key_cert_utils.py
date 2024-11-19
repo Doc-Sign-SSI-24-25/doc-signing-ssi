@@ -2,6 +2,7 @@ from cryptography.hazmat.primitives import serialization
 from datetime import datetime, timedelta
 from cryptography import x509
 from cryptography.x509.oid import NameOID
+from cryptography.x509.base import Certificate
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives import serialization, hashes
 from app.models.signer import Signer
@@ -25,7 +26,7 @@ def generate_key():
 """
 Gera um certificado autoassinado, se o utilizador já tiver uma chave privada
 """
-def generate_cert(signer: Signer):
+def generate_cert(signer: Signer) -> Certificate:
     subject = issuer = x509.Name([
         x509.NameAttribute(NameOID.COMMON_NAME, signer.name),
         #x509.NameAttribute(NameOID.ORGANIZATION_NAME, "My Organization"),
