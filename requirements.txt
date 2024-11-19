@@ -1,4 +1,5 @@
 fastapi
+fastapi[standard]
 uvicorn
 pymongo
 motor                    # Driver assíncrono para MongoDB
