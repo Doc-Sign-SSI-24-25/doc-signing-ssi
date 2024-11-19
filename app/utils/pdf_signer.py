@@ -19,7 +19,6 @@ def sign_pdf(input_file:bytes, signer: Signer, reason,location,signature_positio
     if not reason:
         reason = f'Documento assinado por {signer.name}'
         
-
     date = datetime.now().strftime("D:%Y%m%d%H%M%S+00'00'")
     dct = {
         'aligned': 0,
@@ -35,26 +34,7 @@ def sign_pdf(input_file:bytes, signer: Signer, reason,location,signature_positio
         'contact': signer.email,
         'signingdate': date,
         'type': 'CERTIFICATION'
-        
     }
-    # dct = {
-    #     'aligned': 8192,
-    #     'sigflags': 3,
-    #     'sigflagsft': 132,
-    #     'sigandcertify': True,
-    #     'sigflags': 3,
-    #     'signaturebox': signature_position,
-    #     'contact': signer.email,
-    #     'location': location,
-    #     'reason': reason,
-    #     'signingdate': date,   
-    #     'signature_manual': [  # Add this section
-    #         ['sig_left', 470],
-    #         ['sig_right', 840],
-    #         ['sig_bottom', 570],
-    #         ['sig_top', 640]
-    #     ]     
-    # }
     
     # Carrega a chave privada
     private_key = serialization.load_pem_private_key(
