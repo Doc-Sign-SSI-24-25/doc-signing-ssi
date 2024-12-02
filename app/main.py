@@ -32,33 +32,33 @@ async def root():
     return {"message": "Ferramenta de Assinatura Digital de Documentos"}
 
 
-@app.post("/create_certificate")
-async def create_certificate(certificate: CertificateRequest):
-    from app.controllers.key_and_certificate_controller import KeyCertController
-    KeyCertController(db)
-    return await KeyCertController.create_certificate(certificate)
+# @app.post("/create_certificate")
+# async def create_certificate(certificate: CertificateRequest):
+#     from app.controllers.key_and_certificate_controller import KeyCertController
+#     KeyCertController(db)
+#     return await KeyCertController.create_certificate(certificate)
 
 
-@app.post("/create_key_and_certificate")
-async def create_key_and_certificate(request: KeyRequest):
-    from app.controllers.key_and_certificate_controller import KeyCertController
-    KeyCertController(db)
-    try:
-        key = await KeyCertController.create_key(request)["private_key"]
-        certificate = await KeyCertController.create_certificate(request)["certificate"]
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-    return {
-        "message": "Chave e certificado criados com sucesso",
-        "private_key": key,
-        "certificate": certificate,
-    }
+# @app.post("/create_key_and_certificate")
+# async def create_key_and_certificate(request: KeyRequest):
+#     from app.controllers.key_and_certificate_controller import KeyCertController
+#     KeyCertController(db)
+#     try:
+#         key = await KeyCertController.create_key(request)["private_key"]
+#         certificate = await KeyCertController.create_certificate(request)["certificate"]
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=str(e))
+#     return {
+#         "message": "Chave e certificado criados com sucesso",
+#         "private_key": key,
+#         "certificate": certificate,
+#     }
 
-@app.post("/sign_document")
-async def sign_document(document: SignDocumentRequest):
-    from app.controllers.document_controller import DocumentController
-    DocumentController(db)
-    return await DocumentController.sign_document(document)
+# @app.post("/sign_document")
+# async def sign_document(document: SignDocumentRequest):
+#     from app.controllers.document_controller import DocumentController
+#     DocumentController(db)
+#     return await DocumentController.sign_document(document)
 
 
 @app.get("/verify_document")
