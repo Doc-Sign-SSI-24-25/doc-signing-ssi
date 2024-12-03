@@ -1,14 +1,18 @@
-from bson import ObjectId
+# from typing import Annotated
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+# from fastapi.exceptions import RequestValidationError
 from motor.motor_asyncio import AsyncIOMotorClient
 from app.config import MONGODB_URI, DATABASE_NAME
+
 from app.models.request_models import (
     CertificateRequest,
     KeyRequest,
     SignDocumentRequest,
     UserRequest,
-    RegisterUserRequest
+    RegisterUserRequest,
+    Request
 )
 
 # Conexão com o MongoDB
@@ -27,84 +31,127 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+@app.exception_handler(Exception)
+async def general_exception_handler(request, exc):
+    return JSONResponse(
+        status_code=500,
+        content={"detail": str(exc)},
+    )
+
+
 @app.get("/")
 async def root():
     return {"message": "Ferramenta de Assinatura Digital de Documentos"}
 
 
-# @app.post("/create_certificate")
-# async def create_certificate(certificate: CertificateRequest):
-#     from app.controllers.key_and_certificate_controller import KeyCertController
-#     KeyCertController(db)
-#     return await KeyCertController.create_certificate(certificate)
+@app.post("/create_certificate")
+async def create_certificate(certificate:CertificateRequest):
+    from app.controllers.key_and_certificate_controller import KeyCertController
+
+    controller = KeyCertController(db)
+    return {
+        "message": "Certificado criado com sucesso",
+        "data": await controller.create_certificate(certificate),
+    }
 
 
-# @app.post("/create_key_and_certificate")
-# async def create_key_and_certificate(request: KeyRequest):
-#     from app.controllers.key_and_certificate_controller import KeyCertController
-#     KeyCertController(db)
-#     try:
-#         key = await KeyCertController.create_key(request)["private_key"]
-#         certificate = await KeyCertController.create_certificate(request)["certificate"]
-#     except Exception as e:
-#         raise HTTPException(status_code=500, detail=str(e))
-#     return {
-#         "message": "Chave e certificado criados com sucesso",
-#         "private_key": key,
-#         "certificate": certificate,
-#     }
+@app.post("/create_key_and_certificate")
+async def create_key_and_certificate(request:KeyRequest):
+    from app.controllers.key_and_certificate_controller import KeyCertController
 
-# @app.post("/sign_document")
-# async def sign_document(document: SignDocumentRequest):
-#     from app.controllers.document_controller import DocumentController
-#     DocumentController(db)
-#     return await DocumentController.sign_document(document)
+    controller = KeyCertController(db)
+    try:
+        result = await controller.create_key_and_certificate(request)
+        return {
+            "message": "Chave e certificado criados com sucesso",
+            "data": result,
+        }
+    except Exception as e:
+        print(e)
+        raise HTTPException(status_code=500, detail="Erro ao criar chave e certificado")
+
+
+@app.post("/sign_document")
+async def sign_document(document: SignDocumentRequest):
+    from app.controllers.document_controller import DocumentController
+
+    controller = DocumentController(db)
+    try:
+        return {
+            "message": "Documento assinado com sucesso",
+            "data": await controller.sign_document(document),
+        }
+    except Exception as e:
+        print(e)
+        raise HTTPException(status_code=500, detail="Erro ao assinar documento")
 
 
 @app.get("/verify_document")
 async def verify_document():
-    return {"message": "Documento verificado com sucesso"}
+    raise HTTPException(status_code=501, detail="Not implemented yet")
 
 
 @app.post("/login")
-async def login(user: UserRequest):
+async def login(user:UserRequest):
     from app.controllers.user_controller import UserController
+
     controller = UserController(db)
     try:
-        id = await controller.login(user)
-    except Exception as e:
-        print(e)        
-        raise HTTPException(status_code=404, detail=str(e))
-    return {
+        return {
         "message": "Usuário logado com sucesso",
-        "id": str(id),
+        "data" : await controller.login(user)
     }
+    except Exception as e:
+        print(e)
+        raise HTTPException(status_code=404, detail=str(e))
+    
 
 @app.post("/register")
-async def create_user(user: RegisterUserRequest):
+async def create_user(user:RegisterUserRequest):
     from app.controllers.user_controller import UserController
-    uc = UserController(db)
-    user_id = await uc.register(user)
-    
-    return {"message": "Usuário criado com sucesso", "uid": str(user_id)}
+
+    controller = UserController(db)
+    try:
+        result = await controller.register(user)
+        return {
+            "message": "Usuário criado com sucesso",
+            "data": result,
+        }
+    except Exception as e:
+        print(e)
+        raise HTTPException(status_code=500, detail="Erro ao criar usuário")
+
+@app.post("/get_key")
+async def get_key(request: Request):
+    from app.controllers.key_and_certificate_controller import KeyCertController
+    controller = KeyCertController(db)
+    try:
+        result = await controller.get_key(request)
+        if result.get("private_key") is None:
+            return {
+                "message": "Chave não encontrada",
+                "data": None,
+            }
+        return {
+            "message": "Chave recuperada com sucesso",
+            "data": result,
+        }
+    except Exception as e:
+        print(e)
+        raise HTTPException(status_code=500, detail="Erro ao recuperar chave")
 
 @app.post("/create_key")
 async def create_key(request: KeyRequest):
-    from app.models.signer import Signer
-    from app.utils.key_cert_utils import generate_key
+    from app.controllers.key_and_certificate_controller import KeyCertController
 
-    user = await db.users.find_one({"_id": ObjectId(request.user_id)})
-    if not user:
-        raise HTTPException(status_code=404, detail="Usuário não encontrado")
-    signer = Signer(user["name"], user["email"])
-    private_key = generate_key()
-    signer.private_key = private_key
-    filename = f"{signer.email.replace('.','_').lower()}-key.pem"
-    await db.users.update_one(
-        {"_id": ObjectId(request.user_id)}, {"$set": {"private_key": private_key}}
-    )
-    return {
-        "message": "Chave criada com sucesso",
-        "private_key": private_key,
-        "filename": filename,
-    }
+    controller = KeyCertController(db)
+    try:
+        result = await controller.create_key(request)
+        return {
+            "message": "Chave criada com sucesso",
+            "data": result,
+        }
+    except Exception as e:
+        print(e)
+        raise HTTPException(status_code=500, detail="Erro ao criar chave")

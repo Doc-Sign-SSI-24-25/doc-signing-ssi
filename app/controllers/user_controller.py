@@ -14,10 +14,10 @@ class UserController(BaseController):
         if user:
             raise HTTPException(status_code=400, detail="Usuário já cadastrado")
         user = await self.db.users.insert_one(userReq.model_dump())
-        return user.inserted_id
+        return {"uid": str(user.inserted_id)}
     
     async def login(self, userReq: UserRequest):
         user = await self.db.users.find_one({"email": userReq.email, "password": userReq.password})
         if not user:
             raise HTTPException(status_code=404, detail="Usuário não encontrado")
-        return user["_id"]
+        return {"uid": str(user["_id"])}

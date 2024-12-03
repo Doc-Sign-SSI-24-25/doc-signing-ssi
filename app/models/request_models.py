@@ -1,5 +1,11 @@
 from pydantic import BaseModel, EmailStr
 
+class Request(BaseModel):
+    """
+    A base request model that contains the user_id field.
+    """
+    user_id: str
+
 class UserRequest(BaseModel):
     email: EmailStr
     password: str
