@@ -18,10 +18,12 @@ class DocumentController(BaseController):
             raise HTTPException(status_code=400, detail="Chave privada não encontrada")
         signer = Signer(user["name"], user["email"], user["private_key"])
         try:
-            signed_document = sign_pdf(document.document, signer,document.reason, document.location, document.position)
+            doc = await document.file.read()
+            signed_document = sign_pdf(doc, signer,document.reason, document.location, document.positions)
+            return {"signed_document": signed_document, "filename": document.file.filename.replace(".pdf", "-signed.pdf")}
+
         except Exception as e:
             raise HTTPException(status_code=500, detail=f'Erro ao assinar: {e}')
-        return {"signed_document": signed_document, "filename": document.filename.replace(".pdf", "-signed.pdf")}
     
     async def verify_document(self):
         from fastapi import HTTPException

@@ -1,5 +1,5 @@
 # from typing import Annotated
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 # from fastapi.exceptions import RequestValidationError
@@ -7,8 +7,6 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from app.config import MONGODB_URI, DATABASE_NAME
 
 from app.models.request_models import (
-    CertificateRequest,
-    KeyRequest,
     SignDocumentRequest,
     UserRequest,
     RegisterUserRequest,
@@ -31,7 +29,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
 @app.exception_handler(Exception)
 async def general_exception_handler(request, exc):
     return JSONResponse(
@@ -39,25 +36,12 @@ async def general_exception_handler(request, exc):
         content={"detail": str(exc)},
     )
 
-
 @app.get("/")
 async def root():
     return {"message": "Ferramenta de Assinatura Digital de Documentos"}
 
-
-@app.post("/create_certificate")
-async def create_certificate(certificate:CertificateRequest):
-    from app.controllers.key_and_certificate_controller import KeyCertController
-
-    controller = KeyCertController(db)
-    return {
-        "message": "Certificado criado com sucesso",
-        "data": await controller.create_certificate(certificate),
-    }
-
-
 @app.post("/create_key_and_certificate")
-async def create_key_and_certificate(request:KeyRequest):
+async def create_key_and_certificate(request:Request):
     from app.controllers.key_and_certificate_controller import KeyCertController
 
     controller = KeyCertController(db)
@@ -73,14 +57,14 @@ async def create_key_and_certificate(request:KeyRequest):
 
 
 @app.post("/sign_document")
-async def sign_document(document: SignDocumentRequest):
+async def sign_document(request: SignDocumentRequest):
     from app.controllers.document_controller import DocumentController
 
     controller = DocumentController(db)
     try:
         return {
             "message": "Documento assinado com sucesso",
-            "data": await controller.sign_document(document),
+            "data": await controller.sign_document(request),
         }
     except Exception as e:
         print(e)
@@ -140,14 +124,28 @@ async def get_key(request: Request):
     except Exception as e:
         print(e)
         raise HTTPException(status_code=500, detail="Erro ao recuperar chave")
+    
+@app.post("/create_certificate")
+async def create_certificate(certificate: Request):
+    from app.controllers.key_and_certificate_controller import KeyCertController
+    controller = KeyCertController(db)
+    try:
+        result = await controller.create_certificate(certificate)
+        return {
+            "message": "Certificado criado com sucesso",
+            "data": result,
+        }
+    except Exception as e:
+        print(e)
+        raise HTTPException(status_code=500, detail=f"Erro ao criar certificado: {e}")
 
 @app.post("/create_key")
-async def create_key(request: KeyRequest):
+async def create_key(request: Request):
     from app.controllers.key_and_certificate_controller import KeyCertController
 
     controller = KeyCertController(db)
     try:
-        result = await controller.create_key(request)
+        result = await controller.create_key_pair(request)
         return {
             "message": "Chave criada com sucesso",
             "data": result,
