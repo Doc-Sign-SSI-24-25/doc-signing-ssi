@@ -122,20 +122,22 @@ class KeyCertController(BaseController):
             "cert_filename": cert_filename,
         }
 
-    async def get_key(self, request: Request):
+    async def get_keys(self, request: Request):
         email = await self.db.users.find_one(
             {"_id": ObjectId(request.user_id)}, {"email": 1, "_id": 0}
         )
         if not email:
             raise HTTPException(status_code=404, detail="Usuário não encontrado")
-        private_key = await self.db.users.find_one(
-            {"_id": ObjectId(request.user_id)}, {"private_key": 1, "_id": 0}
+        keys = await self.db.users.find_one(
+            {"_id": ObjectId(request.user_id)}, {"private_key": 1, "public_key":1,"_id": 0}
         )
-        if not private_key:
-            return {"private_key": None, "filename": None}
+        if not keys:
+            return {"private_key": None,"public_key":None, "public_key_filename": None,"private_key_filename": None,}
         return {
-            "private_key": private_key["private_key"],
-            "filename": f"{email['email'].replace('.','_').lower()}-key.pem",
+            "private_key": keys["private_key"],
+            "public_key": keys["public_key"],
+            "private_key_filename": f"{email['email'].replace('.','_').lower()}-private-key.pem",
+            "public_key_filename": f"{email['email'].replace('.','_').lower()}-public-key.pem",
         }
 
     async def get_certificate(self, request: Request):

@@ -1,5 +1,5 @@
 from pydantic import BaseModel, EmailStr
-from fastapi import UploadFile
+from fastapi import UploadFile, Form, File
 
 class Request(BaseModel):
     """
@@ -17,8 +17,9 @@ class RegisterUserRequest(BaseModel):
     password: str
 
 class SignDocumentRequest(BaseModel):
-    user_id: str
-    reason: str
+    file_content: bytes
+    filename: str
+    user_id: str 
+    reason: str 
     location: str
-    file: UploadFile
     positions: list | None = None

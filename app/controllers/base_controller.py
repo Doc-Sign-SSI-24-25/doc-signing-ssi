@@ -6,7 +6,7 @@ class BaseController():
     A Base controller class that defines the basic methods that a controller should have
     """
     def __init__(self, db: AsyncIOMotorClient):
-        pass
+        self.db = db
     
     def findOne(self, query: dict):
         pass
@@ -21,11 +21,11 @@ class BaseController():
     
     @abstractmethod
     def update(self, id, data: dict):
-        pass
+        return self.db.update_one({"_id": id}, data)
     
     @abstractmethod
     def delete(self, id:dict):
-        pass
+        return self.db.delete_one({"_id": id})
     
     
     

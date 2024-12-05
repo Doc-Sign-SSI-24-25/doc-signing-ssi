@@ -1,7 +1,8 @@
 # from typing import Annotated
-from fastapi import FastAPI, HTTPException, File, UploadFile
+from fastapi import FastAPI, HTTPException, File, UploadFile, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+
 # from fastapi.exceptions import RequestValidationError
 from motor.motor_asyncio import AsyncIOMotorClient
 from app.config import MONGODB_URI, DATABASE_NAME
@@ -10,7 +11,7 @@ from app.models.request_models import (
     SignDocumentRequest,
     UserRequest,
     RegisterUserRequest,
-    Request
+    Request,
 )
 
 # Conexão com o MongoDB
@@ -29,6 +30,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 @app.exception_handler(Exception)
 async def general_exception_handler(request, exc):
     return JSONResponse(
@@ -36,12 +38,14 @@ async def general_exception_handler(request, exc):
         content={"detail": str(exc)},
     )
 
+
 @app.get("/")
 async def root():
     return {"message": "Ferramenta de Assinatura Digital de Documentos"}
 
+
 @app.post("/create_key_and_certificate")
-async def create_key_and_certificate(request:Request):
+async def create_key_and_certificate(request: Request):
     from app.controllers.key_and_certificate_controller import KeyCertController
 
     controller = KeyCertController(db)
@@ -57,18 +61,37 @@ async def create_key_and_certificate(request:Request):
 
 
 @app.post("/sign_document")
-async def sign_document(request: SignDocumentRequest):
+async def sign_document(
+    file: UploadFile = File(...),
+    user_id: str = Form(...),
+    reason: str = Form(...),
+    location: str = Form(...),
+    positions: list | None = Form(None),
+):
     from app.controllers.document_controller import DocumentController
 
     controller = DocumentController(db)
     try:
+        request = SignDocumentRequest(
+            file_content= await file.read(),
+            filename=file.filename,
+            user_id=user_id,
+            reason=reason,
+            location=location,
+            positions=positions if positions else None,
+        )
+        result = await controller.sign_document(request)
         return {
             "message": "Documento assinado com sucesso",
-            "data": await controller.sign_document(request),
+            "data": {
+                "filename": result["filename"],
+                "signed_document": result["signed_document"],
+            }
         }
     except Exception as e:
         print(e)
-        raise HTTPException(status_code=500, detail="Erro ao assinar documento")
+        print(e.with_traceback)
+        raise HTTPException(status_code=500, detail=f"Erro 500. Erro ao assinar documento: {str(e)}")
 
 
 @app.get("/verify_document")
@@ -77,22 +100,22 @@ async def verify_document():
 
 
 @app.post("/login")
-async def login(user:UserRequest):
+async def login(user: UserRequest):
     from app.controllers.user_controller import UserController
 
     controller = UserController(db)
     try:
         return {
-        "message": "Usuário logado com sucesso",
-        "data" : await controller.login(user)
-    }
+            "message": "Usuário logado com sucesso",
+            "data": await controller.login(user),
+        }
     except Exception as e:
         print(e)
         raise HTTPException(status_code=404, detail=str(e))
-    
+
 
 @app.post("/register")
-async def create_user(user:RegisterUserRequest):
+async def create_user(user: RegisterUserRequest):
     from app.controllers.user_controller import UserController
 
     controller = UserController(db)
@@ -106,12 +129,14 @@ async def create_user(user:RegisterUserRequest):
         print(e)
         raise HTTPException(status_code=500, detail="Erro ao criar usuário")
 
-@app.post("/get_key")
-async def get_key(request: Request):
+
+@app.post("/get_keys")
+async def get_keys(request: Request):
     from app.controllers.key_and_certificate_controller import KeyCertController
+
     controller = KeyCertController(db)
     try:
-        result = await controller.get_key(request)
+        result = await controller.get_keys(request)
         if result.get("private_key") is None:
             return {
                 "message": "Chave não encontrada",
@@ -123,11 +148,13 @@ async def get_key(request: Request):
         }
     except Exception as e:
         print(e)
-        raise HTTPException(status_code=500, detail="Erro ao recuperar chave")
-    
+        raise HTTPException(status_code=500, detail="Erro ao recuperar chaves")
+
+
 @app.post("/create_certificate")
 async def create_certificate(certificate: Request):
     from app.controllers.key_and_certificate_controller import KeyCertController
+
     controller = KeyCertController(db)
     try:
         result = await controller.create_certificate(certificate)
@@ -138,6 +165,28 @@ async def create_certificate(certificate: Request):
     except Exception as e:
         print(e)
         raise HTTPException(status_code=500, detail=f"Erro ao criar certificado: {e}")
+
+
+@app.post("/get_certificate")
+async def get_certificate(request: Request):
+    from app.controllers.key_and_certificate_controller import KeyCertController
+
+    controller = KeyCertController(db)
+    try:
+        result = await controller.get_certificate(request)
+        if result.get("certificate") is None:
+            return {
+                "message": "Certificado não encontrado",
+                "data": None,
+            }
+        return {
+            "message": "Certificado recuperado com sucesso",
+            "data": result,
+        }
+    except Exception as e:
+        print(e)
+        raise HTTPException(status_code=500, detail="Erro ao recuperar certificado")
+
 
 @app.post("/create_key")
 async def create_key(request: Request):
