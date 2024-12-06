@@ -6,7 +6,10 @@ from cryptography.x509 import load_pem_x509_certificate
 from app.models.signer import Signer
 from endesive import pdf
 
-def sign_pdf(input_file:bytes, signer: Signer, reason,location,signature_position = (470, 840, 570, 640)):
+def sign_document(document:bytes, signer: Signer):
+    pass
+
+def sign_pdf(input_file:bytes, signer: Signer, reason : str | None,location : str | None ,signature_position = (470, 840, 570, 640)):
     # Verifica se o Signer tem uma chave privada e um certificado
     if not signer.private_key or not signer.certificate:
         raise ValueError("Signer must have a private key and a certificate")
@@ -77,3 +80,6 @@ def sign_pdf(input_file:bytes, signer: Signer, reason,location,signature_positio
     )
     
     return datau+datas
+
+def verify_document(document:bytes):
+    pass
