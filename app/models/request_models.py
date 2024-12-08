@@ -23,3 +23,9 @@ class SignDocumentRequest(BaseModel):
     reason: str 
     location: str
     positions: list | None = None
+
+class EmailRequest(BaseModel):
+    subject: str
+    message: str
+    emails: list
+    attachments: list | None = None
