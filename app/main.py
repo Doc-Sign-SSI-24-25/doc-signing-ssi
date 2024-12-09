@@ -230,7 +230,7 @@ async def sign_document_and_send(
     location: str = Form(...),
     subject: str = Form(...),
     message: str = Form(...),
-    emails: list = Form(...),
+    emails: str = Form(...),
     positions: list | None = Form(None),
 ):
     from app.controllers.document_controller import DocumentController
@@ -251,9 +251,9 @@ async def sign_document_and_send(
         request = EmailRequest(
             subject=subject,
             message=message,
-            emails=emails,
+            emails= emails.split(","),
             filename=result["filename"],
-            attachments=result["signed_document"],
+            attachment=result["signed_document"],
         )
         email_controller = EmailController(db)
         await email_controller.send_email(request)

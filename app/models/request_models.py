@@ -27,5 +27,5 @@ class SignDocumentRequest(BaseModel):
 class EmailRequest(BaseModel):
     subject: str
     message: str
-    emails: list
-    attachments: list | None = None
+    emails: list[str]
+    attachment: str | None = None
