@@ -10,14 +10,29 @@ def sign_document(document:bytes, signer: Signer):
     pass
 
 def sign_pdf(input_file:bytes, signer: Signer, reason : str | None,location : str | None ,signature_position = (470, 840, 570, 640)):
+    """
+    Função para assinar um documento PDF com um certificado digital.
+    Recebe um objeto Signer com a chave privada e o certificado do Signer,
+    o documento a ser assinado, a razão da assinatura e a localização da assinatura.
+    O atributo signature_position é uma tupla com as coordenadas da assinatura no documento para
+    implementações futuras.
+    Retorna o documento assinado em bytes.
+    """
+    
     # Verifica se o Signer tem uma chave privada e um certificado
     if not signer.private_key or not signer.certificate:
         raise ValueError("Signer must have a private key and a certificate")
-        
+    
+    ### Verificações do formato do documento
     if isinstance(input_file, str):
         datau = input_file.encode('utf-8')
     else:
         datau = input_file
+    
+    if not input_file.startswith(b'%PDF-1.'):
+        raise ValueError("Invalid PDF file")
+    ###
+        
         
     if not reason:
         reason = f'Documento assinado por {signer.name}'

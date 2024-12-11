@@ -8,7 +8,7 @@ class DocumentController(BaseController):
         
     async def sign_document(self, request: SignDocumentRequest):
         from app.models.signer import Signer
-        from app.utils.signer_utils import sign_pdf
+        from app.services.signer_services import sign_pdf
         from bson.objectid import ObjectId
         from fastapi import HTTPException
         user = await self.db.users.find_one({"_id": ObjectId(request.user_id)}, {"_id":0,"private_key": 1, "name": 1, "email": 1,"certificate": 1})
