@@ -86,6 +86,7 @@ async def sign_document(
             "data": {
                 "filename": result["filename"],
                 "signed_document": result["signed_document"],
+                "hash": result["hash"],
             },
         }
     except Exception as e:

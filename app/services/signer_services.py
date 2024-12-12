@@ -31,8 +31,7 @@ def sign_pdf(input_file:bytes, signer: Signer, reason : str | None,location : st
     
     if not input_file.startswith(b'%PDF-1.'):
         raise ValueError("Invalid PDF file")
-    ###
-        
+    ###        
         
     if not reason:
         reason = f'Documento assinado por {signer.name}'
