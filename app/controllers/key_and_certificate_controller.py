@@ -11,7 +11,7 @@ class KeyCertController(BaseController):
 
     async def create_key_pair(self, request: Request):
         from app.models.signer import Signer
-        from app.utils.key_cert_utils import generate_key_pair
+        from app.services.key_and_certificate_services import generate_key_pair
 
         user = await self.db.users.find_one({"_id": ObjectId(request.user_id)})
         if not user:
@@ -32,8 +32,13 @@ class KeyCertController(BaseController):
         }
 
     async def create_certificate(self, request: Request):
+        """
+        Função para gerar um certificado autoassinado para o usuário que fez a requisição.
+        Os dados do Signer são buscados no banco de dados e utilizados para gerar o certificado.
+        Se o utilizador não possuir o par de chaves privada e pública, a função lança um erro 400.
+        """
         from app.models.signer import Signer
-        from app.utils.key_cert_utils import generate_cert
+        from app.services.key_and_certificate_services import generate_certificate
         from fastapi import HTTPException
         from bson import ObjectId
 
@@ -56,11 +61,8 @@ class KeyCertController(BaseController):
             user["name"], user["email"], user["private_key"], user["public_key"]
         )
         try:
-            # Gera o certificado
-            cert = generate_cert(signer)
-            from cryptography.hazmat.primitives import serialization
-
-            encoded_certificate = cert.public_bytes(serialization.Encoding.PEM)
+            # Gera o certificado no formato PEM
+            certificate = generate_certificate(signer)
         except Exception as e:
             print(e.with_traceback)
             print(e.__cause__)
@@ -71,19 +73,23 @@ class KeyCertController(BaseController):
         # Se não houver erro, atualiza o usuário no banco de dados com o certificado gerado
         await self.db.users.update_one(
             {"_id": ObjectId(user["_id"])},
-            {"$set": {"certificate": encoded_certificate}},
+            {"$set": {"certificate": certificate}},
         )
         filename = f"{signer.email.replace('.','_').lower()}-cert.pem"
 
         # Retorna o certificado gerado e o nome do arquivo
         return {
-            "certificate": encoded_certificate,
+            "certificate": certificate,
             "filename": filename,
         }
 
     async def create_key_and_certificate(self, request: Request):
-        from app.models.signer import Signer
-        from app.utils.key_cert_utils import generate_key_pair, generate_cert
+        """
+        Função que gera um par de chaves privada e pública RSA e um certificado autoassinado
+        para o usuário que fez a requisição. As chaves e o certificado são armazenados no banco
+        de dados e o nome dos arquivos são retornados na resposta.
+        """
+        from app.services.key_and_certificate_services import generate_key_and_certificate
 
         # Busca o usuário no banco de dados e retorna apenas os campos name, email
         user = await self.db.users.find_one(
@@ -93,30 +99,26 @@ class KeyCertController(BaseController):
             # Se o usuário não for encontrado, retorna um erro 404
             raise HTTPException(status_code=404, detail="Usuário não encontrado")
 
-        signer = Signer(user["name"], user["email"])
-        private_key, public_key = generate_key_pair()
-        signer.private_key = private_key
-        signer.public_key = public_key
-        public_key_filename = f"{signer.email.replace('.','_').lower()}-private-key.pem"
-        private_key_filename = f"{signer.email.replace('.','_').lower()}-public-key.pem"
-        cert = generate_cert(signer)
-        cert_filename = f"{signer.email.replace('.','_').lower()}-key-cert.pem"
-        from cryptography.hazmat.primitives import serialization
+        name = user["name"]
+        email = user["email"]
+        private_key, public_key,certificate = generate_key_and_certificate(user_name=name)
+        public_key_filename = f"{email.replace('.','_').lower()}-private-key.pem"
+        private_key_filename = f"{email.replace('.','_').lower()}-public-key.pem"
+        cert_filename = f"{email.replace('.','_').lower()}-key-cert.pem"
 
-        encoded_certificate = cert.public_bytes(serialization.Encoding.PEM)
         await self.db.users.update_one(
             {"_id": ObjectId(request.user_id)},
             {
                 "$set": {
                     "private_key": private_key,
                     "public_key": public_key,
-                    "certificate": encoded_certificate,
+                    "certificate": certificate,
                 }
             },
         )
         return {
             "private_key": private_key,
-            "certificate": encoded_certificate,
+            "certificate": certificate,
             "public_key_filename": public_key_filename,
             "private_key_filename": private_key_filename,
             "cert_filename": cert_filename,
@@ -155,7 +157,3 @@ class KeyCertController(BaseController):
             "certificate": certificate["certificate"],
             "filename": f"{email['email'].replace('.','_').lower()}-cert.pem",
         }
-        
-    async def get_public_key(self, request:Request):
-        pass
-

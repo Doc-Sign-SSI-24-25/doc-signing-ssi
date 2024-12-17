@@ -8,7 +8,7 @@ class DocumentController(BaseController):
         
     async def sign_document(self, request: SignDocumentRequest):
         from app.models.signer import Signer
-        from app.utils.signer_utils import sign_pdf
+        from app.services.signer_services import sign_pdf
         from bson.objectid import ObjectId
         from fastapi import HTTPException
         user = await self.db.users.find_one({"_id": ObjectId(request.user_id)}, {"_id":0,"private_key": 1, "name": 1, "email": 1,"certificate": 1})
@@ -20,10 +20,12 @@ class DocumentController(BaseController):
             raise HTTPException(status_code=400, detail="Certificado não encontrado")
         signer = Signer(name=user["name"], email=user["email"], private_key=user["private_key"], cert_pem=user["certificate"])
         try:
+            from app.utils.crypto_utils import create_hash
             signed_document = sign_pdf(request.file_content, signer,request.reason, request.location, request.positions)
+            signed_document_hash = create_hash(signed_document)
             import base64
             file_base_64 = base64.b64encode(signed_document).decode('utf-8')
-            return {"signed_document": file_base_64, "filename": request.filename.replace(".pdf", "-signed.pdf")}
+            return {"signed_document": file_base_64, "filename": request.filename.replace(".pdf", "-signed.pdf"), "hash": signed_document_hash}
 
         except Exception as e:
             raise HTTPException(status_code=500, detail=f'Erro ao assinar: {e}')

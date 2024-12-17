@@ -9,8 +9,10 @@ from app.models.signer import Signer
 
 from cryptography.hazmat.backends import default_backend
 
-
 def generate_key_pair():
+    """
+    Função que gera um par de chaves privada e pública RSA e retorna ambas as chaves em formato PEM.
+    """
     key = rsa.generate_private_key(
         public_exponent=65537, key_size=2048, backend=default_backend()
     )
@@ -28,16 +30,22 @@ def generate_key_pair():
     return private_pem, public_pem
 
 
-"""
-Gera um certificado autoassinado, se o utilizador já tiver uma chave privada
-"""
-
-
-def generate_cert(signer: Signer) -> Certificate:
+def generate_certificate(signer: Signer, not_valid_after: datetime = (datetime.now() + timedelta(days=365))) -> bytes:
+    """
+    Essa função recebe um objeto Signer e uma data opcional de validade do certificado.
+    As chave privada e pública do utilizador são utilizadas para gerar um 
+    certificado autoassinado, se o utilizador não tiver as chaves a função lança um ValueError.
+    Se nenhuma data de validade for fornecida, o certificado será válido por 365 dias. 
+    Essa função retorna o certificado já assinado em formato PEM, para
+    manter a padronização com as funções anteriores. 
+    """
+    
+    if not signer.private_key or not signer.public_key:
+        raise ValueError("Chave privada ou pública não encontrada")
     subject = issuer = x509.Name(
         [
             x509.NameAttribute(NameOID.COMMON_NAME, signer.name),
-            # x509.NameAttribute(NameOID.ORGANIZATION_NAME, "My Organization"),
+            x509.NameAttribute(NameOID.ORGANIZATION_NAME, "IPB"),
             x509.NameAttribute(NameOID.COUNTRY_NAME, "PT"),
         ]
     )
@@ -51,7 +59,7 @@ def generate_cert(signer: Signer) -> Certificate:
         )
         .serial_number(x509.random_serial_number())
         .not_valid_before(datetime.now())
-        .not_valid_after(datetime.now() + timedelta(days=365))
+        .not_valid_after(not_valid_after)
         .add_extension(
             x509.BasicConstraints(ca=True, path_length=None),
             critical=True,
@@ -64,25 +72,36 @@ def generate_cert(signer: Signer) -> Certificate:
             default_backend(),
         )
     )
-    return cert
+    cert_pem = cert.public_bytes(encoding=serialization.Encoding.PEM)
+    return cert_pem
 
 
-def generate_key_and_cert(common_name):
-    # Gera chave privada
+def generate_key_and_certificate(user_name: str, certificate_validity: datetime = (datetime.now() + timedelta(days=365))) -> tuple[bytes, bytes, bytes]:
+    """
+    Função que gera as chaves privada e pública e, posteriormente o certificado autoassinado,
+    retornando as chaves e o certificado em formato PEM.
+    Essa função é adequada para novos utilizadores que não possuem chaves ou certificados,
+    pois recebe o nome do utilizador e a validade do certificado como argumentos, 
+    em vez de um objeto Signer. 
+    Se nenhuma data de validade for fornecida, o certificado será válido por 365 dias.
+    """
+    # Gera uma chave privada RSA
     private_key = rsa.generate_private_key(
         public_exponent=65537, key_size=2048, backend=default_backend()
     )
 
-    # Cria os atributos do certificado
+    # Cria os atributos do subject e issuer com os mesmos valores
     subject = issuer = x509.Name(
         [
-            x509.NameAttribute(NameOID.COMMON_NAME, common_name),
-            # x509.NameAttribute(NameOID.ORGANIZATION_NAME, "My Organization"),
+            x509.NameAttribute(NameOID.COMMON_NAME, user_name),
+            x509.NameAttribute(NameOID.ORGANIZATION_NAME, "IPB"),
             x509.NameAttribute(NameOID.COUNTRY_NAME, "PT"),
         ]
     )
 
-    # Gera certificado autoassinado
+    # Gera certificado autoassinado com a chave pública gerada anteriormente
+    # e os atributos do subject e issuer
+    # e o assina com a chave privada
     cert = (
         x509.CertificateBuilder()
         .subject_name(subject)
@@ -90,7 +109,7 @@ def generate_key_and_cert(common_name):
         .public_key(private_key.public_key())
         .serial_number(x509.random_serial_number())
         .not_valid_before(datetime.now())
-        .not_valid_after(datetime.now() + timedelta(days=365))
+        .not_valid_after(certificate_validity)
         .add_extension(
             x509.BasicConstraints(ca=True, path_length=None),
             critical=True,
@@ -98,18 +117,16 @@ def generate_key_and_cert(common_name):
         .sign(private_key, hashes.SHA256(), default_backend())
     )
 
-    # Retorna a chave privada e o certificado em formato PEM
+    # Codifica as chave privadam pública e o Certificado no formato PEM
     private_key_pem = private_key.private_bytes(
         encoding=serialization.Encoding.PEM,
         format=serialization.PrivateFormat.PKCS8,
         encryption_algorithm=serialization.NoEncryption(),
     )
-
     public_key_pem = private_key.public_key().public_bytes(
         encoding=serialization.Encoding.PEM,
         format=serialization.PublicFormat.SubjectPublicKeyInfo,
     )
-
     cert_pem = cert.public_bytes(encoding=serialization.Encoding.PEM)
 
     return private_key_pem, public_key_pem, cert_pem
