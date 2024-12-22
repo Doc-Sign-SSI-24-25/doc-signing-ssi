@@ -1,11 +1,15 @@
 # from typing import Annotated
+from io import BytesIO
 from fastapi import FastAPI, HTTPException, File, UploadFile, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-
+from typing import List, Optional
 # from fastapi.exceptions import RequestValidationError
 from motor.motor_asyncio import AsyncIOMotorClient
 from app.config import MONGODB_URI, DATABASE_NAME
+import json
+from app.controllers.document_controller import DocumentController
+from app.controllers.email_controller import EmailController
 
 from app.models.request_models import (
     SignDocumentRequest,
@@ -208,12 +212,28 @@ async def create_key(request: Request):
 
 
 @app.post("/send_email")
-async def send_email(request: Request):
+async def send_email(
+    user_id: str = Form(...),
+    subject: str = Form(...),
+    message: str = Form(...),
+    emails: str = Form(...),  # Lista de emails como string separada por vírgulas
+    attachment: UploadFile | None = File(None),  # O anexo é opcional
+):
     from app.controllers.email_controller import EmailController
 
     controller = EmailController(db)
     try:
-        result = await controller.send_email(request)
+        # Converte a string de emails para lista
+        email_list = emails.split(",")
+
+        # Chama o controlador
+        result = await controller.send_email(
+            user_id=user_id,
+            subject=subject,
+            message=message,
+            emails=email_list,
+            attachment=attachment,  # Passa o objeto UploadFile diretamente
+        )
         return {
             "message": "Email enviado com sucesso",
             "data": result,
@@ -223,6 +243,11 @@ async def send_email(request: Request):
         raise HTTPException(status_code=500, detail="Erro ao enviar email")
 
 
+document_controller = DocumentController(db)
+email_controller = EmailController(db)
+
+from tempfile import SpooledTemporaryFile
+
 @app.post("/sign_document_and_send")
 async def sign_document_and_send(
     file: UploadFile = File(...),
@@ -231,43 +256,56 @@ async def sign_document_and_send(
     location: str = Form(...),
     subject: str = Form(...),
     message: str = Form(...),
-    emails: str = Form(...),
-    positions: list | None = Form(None),
+    emails: str = Form(...),  # Lista de emails como string separada por vírgulas
+    positions: Optional[str] = Form(None),
 ):
-    from app.controllers.document_controller import DocumentController
-    from app.models.request_models import EmailRequest
-    from app.controllers.email_controller import EmailController
-
-    controller = DocumentController(db)
     try:
-        request = SignDocumentRequest(
+        # Converter `positions` para lista (se aplicável)
+        positions_list = json.loads(positions) if positions else None
+
+        # Assinar o documento chamando a função existente
+        sign_request = SignDocumentRequest(
             file_content=await file.read(),
             filename=file.filename,
             user_id=user_id,
             reason=reason,
             location=location,
-            positions=positions if positions else None,
+            positions=positions_list,
         )
-        result = await controller.sign_document(request)
-        request = EmailRequest(
+        signed_document = await document_controller.sign_document(sign_request)
+
+        import base64
+        # Decodificar o documento assinado em base64
+        signed_pdf_data = base64.b64decode(signed_document["signed_document"])
+
+        # Criar um arquivo temporário para o anexo
+        temp_file = SpooledTemporaryFile()
+        temp_file.write(signed_pdf_data)
+        temp_file.seek(0)
+
+        # Recriar o arquivo para o envio de e-mail
+        attachment = UploadFile(
+            filename=signed_document["filename"],
+            file=temp_file,
+        )
+
+        # Enviar o e-mail com o documento assinado
+        email_list = emails.split(",")
+        await email_controller.send_email(
+            user_id=user_id,
             subject=subject,
             message=message,
-            emails= emails.split(","),
-            filename=result["filename"],
-            attachment=result["signed_document"],
+            emails=email_list,
+            attachment=attachment,
         )
-        email_controller = EmailController(db)
-        await email_controller.send_email(request)
+
         return {
-            "message": "Documento assinado e enviado com sucesso",
+            "message": "Documento assinado e enviado com sucesso!",
             "data": {
-                "filename": result["filename"],
-                "signed_document": result["signed_document"],
+                "filename": signed_document["filename"],
+                "hash": signed_document["hash"],
             },
         }
+
     except Exception as e:
-        print(e)
-        print(e.with_traceback)
-        raise HTTPException(
-            status_code=500, detail=f"Erro 500. Erro ao assinar documento: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Erro ao processar: {str(e)}")
