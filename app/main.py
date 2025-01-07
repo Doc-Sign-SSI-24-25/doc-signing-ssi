@@ -101,9 +101,27 @@ async def sign_document(
         )
 
 
-@app.get("/verify_document")
-async def verify_document():
-    raise HTTPException(status_code=501, detail="Not implemented yet")
+@app.post("/validate")
+async def verify_document(
+    file_content: UploadFile = File(...),
+    file_hash: UploadFile = File(...),
+):
+    from app.controllers.document_controller import DocumentController
+
+    controller = DocumentController(db)
+    try:
+        file_content_data = await file_content.read()
+        file_hash_data = await file_hash.read()
+        result = await controller.verify_document(file_content_data,file_hash_data)
+        return {
+            "message": "Documento validado com sucesso",
+            "data": result,
+        }
+    except Exception as e:
+        print(e)
+        raise HTTPException(
+            status_code=500, detail="Erro ao validar documento: " + str(e)
+        )
 
 
 @app.post("/login")

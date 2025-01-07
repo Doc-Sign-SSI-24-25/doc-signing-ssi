@@ -30,6 +30,8 @@ class DocumentController(BaseController):
         except Exception as e:
             raise HTTPException(status_code=500, detail=f'Erro ao assinar: {e}')
     
-    async def verify_document(self):
-        from fastapi import HTTPException
-        raise HTTPException(status_code=500,detail="This feature is not implemented yet")
+    async def verify_document(self, file_content:bytes,file_hash:bytes):
+        from app.utils.crypto_utils import verify_hash
+        file_ok = verify_hash(file_content, file_hash.decode())
+        return file_ok
+        
