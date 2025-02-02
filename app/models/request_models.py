@@ -16,8 +16,13 @@ class RegisterUserRequest(BaseModel):
     email: EmailStr
     password: str
 
+class CertificateRequest(BaseModel):
+    user_id: str
+    private_key: bytes
+
 class SignDocumentRequest(BaseModel):
     file_content: bytes
+    private_key: bytes
     filename: str
     user_id: str 
     reason: str 

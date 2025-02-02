@@ -1,8 +1,8 @@
 from fastapi import HTTPException
 from motor.motor_asyncio import AsyncIOMotorClient
 from bson import ObjectId
-from app.controllers.base_controller import BaseController
-from app.models.request_models import  Request
+from controllers.base_controller import BaseController
+from models.request_models import  CertificateRequest, Request
 
 
 class KeyCertController(BaseController):
@@ -10,8 +10,8 @@ class KeyCertController(BaseController):
         self.db = db
 
     async def create_key_pair(self, request: Request):
-        from app.models.signer import Signer
-        from app.services.key_and_certificate_services import generate_key_pair
+        from models.signer import Signer
+        from services.key_and_certificate_services import generate_key_pair
 
         user = await self.db.users.find_one({"_id": ObjectId(request.user_id)})
         if not user:
@@ -22,7 +22,7 @@ class KeyCertController(BaseController):
         filename_public = f"{signer.email.replace('.','_').lower()}-public-key.pem"
         await self.db.users.update_one(
             {"_id": ObjectId(request.user_id)},
-            {"$set": {"private_key": private_key, "public_key": public_key}},
+            {"$set": {"public_key": public_key}},
         )
         return {
             "private_key": private_key,
@@ -31,26 +31,26 @@ class KeyCertController(BaseController):
             "filename_private": filename_public,
         }
 
-    async def create_certificate(self, request: Request):
+    async def create_certificate(self, request: CertificateRequest):
         """
         Função para gerar um certificado autoassinado para o usuário que fez a requisição.
         Os dados do Signer são buscados no banco de dados e utilizados para gerar o certificado.
         Se o utilizador não possuir o par de chaves privada e pública, a função lança um erro 400.
         """
-        from app.models.signer import Signer
-        from app.services.key_and_certificate_services import generate_certificate
+        from models.signer import Signer
+        from services.key_and_certificate_services import generate_certificate
         from fastapi import HTTPException
         from bson import ObjectId
 
         # Busca o usuário no banco de dados e retorna apenas os campos name, email, private_key
         user = await self.db.users.find_one(
             {"_id": ObjectId(request.user_id)},
-            {"name": 1, "email": 1, "private_key": 1, "public_key": 1},
+            {"name": 1, "email": 1, "public_key": 1},
         )
         if not user:
             # Se o usuário não for encontrado, retorna um erro 404
             raise HTTPException(status_code=404, detail="Usuário não encontrado")
-        if not user.get("private_key"):
+        if not request.private_key:
             # Se o usuário não tiver chave privada, retorna um erro 400
             raise HTTPException(
                 status_code=400, detail="A Chave do utilizador não foi encontrada"
@@ -58,7 +58,7 @@ class KeyCertController(BaseController):
 
         # Cria um objeto Signer com os dados do usuário
         signer = Signer(
-            user["name"], user["email"], user["private_key"], user["public_key"]
+            user["name"], user["email"], request.private_key, user["public_key"]
         )
         try:
             # Gera o certificado no formato PEM
@@ -89,7 +89,7 @@ class KeyCertController(BaseController):
         para o usuário que fez a requisição. As chaves e o certificado são armazenados no banco
         de dados e o nome dos arquivos são retornados na resposta.
         """
-        from app.services.key_and_certificate_services import generate_key_and_certificate
+        from services.key_and_certificate_services import generate_key_and_certificate
 
         # Busca o usuário no banco de dados e retorna apenas os campos name, email
         user = await self.db.users.find_one(
@@ -110,7 +110,6 @@ class KeyCertController(BaseController):
             {"_id": ObjectId(request.user_id)},
             {
                 "$set": {
-                    "private_key": private_key,
                     "public_key": public_key,
                     "certificate": certificate,
                 }
@@ -118,27 +117,26 @@ class KeyCertController(BaseController):
         )
         return {
             "private_key": private_key,
+            "public_key": public_key,
             "certificate": certificate,
             "public_key_filename": public_key_filename,
             "private_key_filename": private_key_filename,
             "cert_filename": cert_filename,
         }
 
-    async def get_keys(self, request: Request):
+    async def get_keys(self, user_id: str):
         email = await self.db.users.find_one(
-            {"_id": ObjectId(request.user_id)}, {"email": 1, "_id": 0}
+            {"_id": ObjectId(user_id)}, {"email": 1, "_id": 0}
         )
         if not email:
             raise HTTPException(status_code=404, detail="Usuário não encontrado")
         keys = await self.db.users.find_one(
-            {"_id": ObjectId(request.user_id)}, {"private_key": 1, "public_key":1,"_id": 0}
+            {"_id": ObjectId(user_id)}, { "public_key":1,"_id": 0}
         )
         if not keys:
-            return {"private_key": None,"public_key":None, "public_key_filename": None,"private_key_filename": None,}
+            return {"public_key":None, "public_key_filename": None,}
         return {
-            "private_key": keys["private_key"],
             "public_key": keys["public_key"],
-            "private_key_filename": f"{email['email'].replace('.','_').lower()}-private-key.pem",
             "public_key_filename": f"{email['email'].replace('.','_').lower()}-public-key.pem",
         }
 

@@ -1,6 +1,6 @@
 from enum import Enum
-from app.services.signer_services import sign_pdf
-from app.models.signer import Signer
+from services.signer_services import sign_pdf
+from models.signer import Signer
 
 FileType = Enum("FileType", [("PDF", "pdf"), ("OFFICE", "office"), ("UNSUPPORTED", "unsupported")])
 

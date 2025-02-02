@@ -1,7 +1,7 @@
-from app.controllers.base_controller import BaseController
+from controllers.base_controller import BaseController
 from motor.motor_asyncio import AsyncIOMotorClient
 from fastapi import HTTPException
-from app.models.request_models import UserRequest
+from models.request_models import UserRequest
 
 class UserController(BaseController):
     db: AsyncIOMotorClient = None

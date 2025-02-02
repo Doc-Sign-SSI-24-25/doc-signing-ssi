@@ -5,7 +5,7 @@ from cryptography.x509.oid import NameOID
 from cryptography.x509.base import Certificate
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives import serialization, hashes
-from app.models.signer import Signer
+from models.signer import Signer
 
 from cryptography.hazmat.backends import default_backend
 
@@ -19,7 +19,7 @@ def generate_key_pair():
     # Serializa a chave privada no formato PEM
     private_pem = key.private_bytes(
         encoding=serialization.Encoding.PEM,
-        format=serialization.PrivateFormat.TraditionalOpenSSL,
+        format=serialization.PrivateFormat.PKCS8,
         encryption_algorithm=serialization.NoEncryption(),
     )
     # Serializa a chave pública no formato PEM
@@ -61,7 +61,19 @@ def generate_certificate(signer: Signer, not_valid_after: datetime = (datetime.n
         .not_valid_before(datetime.now())
         .not_valid_after(not_valid_after)
         .add_extension(
-            x509.BasicConstraints(ca=True, path_length=None),
+            x509.BasicConstraints(ca=True, path_length=None), critical=True
+        )
+        .add_extension(
+            x509.KeyUsage(
+                digital_signature=True,
+                content_commitment=False,
+                key_encipherment=False,
+                data_encipherment=False,
+                key_agreement=False,
+                key_cert_sign=False,
+                crl_sign=False,
+                encipher_only=False,
+                decipher_only=False),                
             critical=True,
         )
         .sign(
@@ -111,7 +123,21 @@ def generate_key_and_certificate(user_name: str, certificate_validity: datetime 
         .not_valid_before(datetime.now())
         .not_valid_after(certificate_validity)
         .add_extension(
-            x509.BasicConstraints(ca=True, path_length=None),
+            x509.BasicConstraints(ca=True, path_length=None), 
+            critical=True
+        )
+        .add_extension(
+            x509.KeyUsage(
+                digital_signature=True,
+                content_commitment=False,
+                key_encipherment=False,
+                data_encipherment=False,
+                key_agreement=False,
+                key_cert_sign=False,
+                crl_sign=False,
+                encipher_only=False,
+                decipher_only=False
+                ),              
             critical=True,
         )
         .sign(private_key, hashes.SHA256(), default_backend())
