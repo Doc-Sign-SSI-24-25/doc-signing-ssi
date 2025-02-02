@@ -1,4 +1,3 @@
-import base64
 from typing import Dict, Optional
 from PyPDF2 import PdfReader
 from cryptography.hazmat.backends import default_backend
@@ -8,8 +7,6 @@ from cryptography.hazmat.primitives.serialization import pkcs12
 from cryptography.x509 import load_pem_x509_certificate
 from models.signer import Signer
 from endesive import pdf
-from asn1crypto import x509, cms
-
 
 def sign_document(document: bytes, signer: Signer):
     pass
@@ -106,6 +103,12 @@ def sign_pdf(
 async def verify_document(
     document: bytes, trusted_signers: list
 ) -> Optional[Dict]:
+    """
+    Essa função recebe um documento PDF e uma lista de signatários confiáveis.
+    Os signatários são apenas os existentes na base de dados da aplicação.
+    Se o documento foi assinado por um signatário confiável, a função retorna
+    os dados da assinatura.
+    """
     from endesive import pdf
     from io import BytesIO
 
@@ -123,6 +126,7 @@ async def verify_document(
     trusted_cert_pems = [signer["certificate"] for signer in trusted_signers]
     trusted_signers = [signer["email"] for signer in trusted_signers]
     try:
+        # Verifica a assinatura do documento
         verify_result = pdf.verify(document, trusted_cert_pems)
         for hashok, signatureok, certok in verify_result:
             # Verifica se foi assinado com um certificado confiável
@@ -144,6 +148,7 @@ async def verify_document(
             if not signatures.get("name"):
                 validated = False
             else:
+                # Verifica se a assinatura foi feita por um signatário confiável
                 for signer in trusted_signers:
                     if signer == signatures.get("name"):
                         validated = True
@@ -157,6 +162,9 @@ async def verify_document(
 
 
 def extract_signature(pdf_bytes: bytes):
+    """
+    Essa função tenta obter os dados da assinatura de um documento PDF.
+    """
     try:
         if pdf_bytes:
             reader = PdfReader(pdf_bytes)
@@ -198,104 +206,3 @@ def extract_signature(pdf_bytes: bytes):
             return "Arquivo PDF vazio"
     except Exception as e:
         return f"Erro ao extrair assinatura: {str(e)}"
-
-
-# def extract_cms_sign(pdf_data: bytes) -> Optional[Dict]:
-#     """
-#     Extrai informações de uma assinatura CMS/CADES do endesive.
-#     """
-#     try:
-#         dados_assinatura = pdf.verify(pdf_data)
-
-#         assinaturas = []
-#         for i, dados in enumerate(dados_assinatura):
-#             # dados[0] contém uma tupla (hashok, signatureok, certificateok)
-#             # dados[1] contém os dados CMS da assinatura
-#             hash_ok, signature_ok, certificate_ok = dados[0]
-
-#             assinatura = {
-#                 "nome_assinante": "Extraído do certificado" if certificate_ok else None,
-#                 "data": datetime.now().strftime(
-#                     "%d/%m/%Y %H:%M:%S"
-#                 ),  # Data da verificação
-#                 "motivo": None,
-#                 "local": None,
-#                 "email": None,
-#                 "tipo_assinatura": "CMS/CADES",
-#                 "status_verificacao": {
-#                     "hash_valido": hash_ok,
-#                     "assinatura_valida": signature_ok,
-#                     "certificado_valido": certificate_ok,
-#                     "numero_assinatura": i + 1,
-#                 },
-#             }
-
-#             # Tenta extrair informações adicionais se tivermos os dados CMS
-#             if len(dados) > 1 and isinstance(dados[1], bytes):
-#                 try:
-#                     info_adicional = extrair_info_cms(dados[1])
-#                     assinatura.update(info_adicional)
-#                 except Exception as e:
-#                     print(
-#                         f"Aviso: Não foi possível extrair informações adicionais da assinatura: {e}"
-#                     )
-
-#             assinaturas.append(assinatura)
-
-#         return assinaturas
-
-#     except Exception as e:
-#         print(f"Erro ao extrair informações da assinatura CMS: {str(e)}")
-#         return None
-
-
-# def extrair_info_cms(dados_cms: bytes) -> Dict:
-#     """
-#     Extrai informações adicionais dos dados CMS quando disponíveis.
-#     """
-#     try:
-#         conteudo_cms = cms.ContentInfo.load(dados_cms)
-#         dados_assinados = conteudo_cms["content"]
-
-#         info = {}
-
-#         # Tenta extrair informações do certificado
-#         if dados_assinados["certificates"]:
-#             cert = dados_assinados["certificates"][0]
-#             info["nome_assinante"] = cert.subject.human_friendly
-#             info["email"] = extrair_email_certificado(cert)
-
-#             info["certificado_info"] = {
-#                 "emissor": cert.issuer.human_friendly,
-#                 "valido_de": cert.not_valid_before.strftime("%d/%m/%Y"),
-#                 "valido_ate": cert.not_valid_after.strftime("%d/%m/%Y"),
-#                 "numero_serie": hex(cert.serial_number),
-#             }
-
-#         # Tenta extrair atributos assinados
-#         if dados_assinados["signer_infos"]:
-#             signer_info = dados_assinados["signer_infos"][0]
-#             if "signed_attrs" in signer_info:
-#                 for atributo in signer_info["signed_attrs"]:
-#                     if atributo["type"].native == "signing_time":
-#                         info["data"] = atributo["values"][0].native.strftime(
-#                             "%d/%m/%Y %H:%M:%S"
-#                         )
-
-#         return info
-#     except Exception as e:
-#         print(f"Aviso: Erro ao extrair informações CMS: {e}")
-#         return {}
-
-
-# def extrair_email_certificado(certificado: x509.Certificate) -> Optional[str]:
-#     """
-#     Extrai o email do certificado se disponível.
-#     """
-#     try:
-#         for attr in certificado.subject:
-#             if attr.native["type"] == "email_address":
-#                 return attr.native["value"]
-#     except:
-#         pass
-#     return None

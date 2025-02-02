@@ -51,6 +51,10 @@ class DocumentController(BaseController):
             raise HTTPException(status_code=500, detail=f"Erro ao assinar: {e}")
 
     async def verify_document(self, file_content: bytes):
+        """
+        Essa função busca todos os usuários que possuem certificado e
+        verifica se o documento foi assinado por algum deles.
+        """
         import services.signer_services as s
         try:
             cursor = self.db.users.find(
