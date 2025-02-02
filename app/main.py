@@ -118,13 +118,24 @@ async def sign_document(
 @app.post("/validate")
 async def verify_document(
     file_content: UploadFile = File(...),
-    # file_hash: UploadFile = File(...),
+    file_hash: UploadFile = File(...),
 ):
     from controllers.document_controller import DocumentController
 
     controller = DocumentController(db)
     try:
         file_content_data = await file_content.read()
+        file_hash_data = await file_hash.read()
+        print(file_hash)
+        print(file_hash_data)
+        equal = await controller.verify_hash(file_content_data, file_hash_data)
+        if not equal:
+            return {
+                "message": "Hashes não são iguais",
+                "data": {
+                    "validated": False,
+                }
+            }
         
         # file_hash_data = await file_hash.read()
         result = await controller.verify_document(file_content_data)

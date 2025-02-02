@@ -49,6 +49,16 @@ class DocumentController(BaseController):
 
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Erro ao assinar: {e}")
+    
+    async def verify_hash(self, file_content: bytes, hash: bytes):
+        """
+        Verifica se o hash do conteúdo do arquivo é igual ao hash fornecido.
+        """
+        from utils.crypto_utils import create_hash
+
+        file_hash = create_hash(file_content)
+
+        return file_hash.encode() == hash
 
     async def verify_document(self, file_content: bytes):
         """
